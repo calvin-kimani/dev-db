@@ -81,18 +81,26 @@ export default {
 
 #### Using the CLI directly
 
-Run the CLI to generate JSON files:
+Run the CLI to generate JSON files from a single schema file or a directory:
 
 ```bash
-# Generate from a directory of schemas
-bunx @doviui/dev-db generate ./schemas -o ./mock-data
+# Generate from a single schema file
+bunx @doviui/dev-db schema.ts
 
-# Generate from a single file
-bunx @doviui/dev-db generate ./schemas/user.schema.ts -o ./data
+# Generate from a directory of schema files
+bunx @doviui/dev-db ./schemas
+
+# Specify output directory
+bunx @doviui/dev-db schema.ts -o ./data
 
 # Use a seed for reproducible data
-bunx @doviui/dev-db generate ./schemas --seed 42
+bunx @doviui/dev-db ./schemas --seed 42
+
+# Combine options
+bunx @doviui/dev-db ./schemas -o ./mock-data -s 42
 ```
+
+**Directory Support:** When a directory is provided, all `.ts` and `.js` files are loaded and their schemas are merged. This allows you to organize related tables across multiple files for better maintainability.
 
 #### Adding to package.json scripts
 
@@ -101,8 +109,8 @@ Add generation to your project's scripts:
 ```json
 {
   "scripts": {
-    "generate:data": "bunx @doviui/dev-db generate ./schemas -o ./mock-data",
-    "generate:data:seed": "bunx @doviui/dev-db generate ./schemas -o ./mock-data --seed 42"
+    "generate:data": "bunx @doviui/dev-db ./schemas -o ./mock-data",
+    "generate:data:seed": "bunx @doviui/dev-db ./schemas -o ./mock-data -s 42"
   }
 }
 ```
@@ -221,7 +229,11 @@ Chain modifiers to configure field behavior and constraints:
 
 ### Multi-Table Schemas
 
-Define multiple related tables in a single file for better organization:
+You can organize schemas in two ways:
+
+**Option 1: Single file with multiple tables**
+
+Define multiple related tables in a single file:
 
 ```typescript
 // schemas/social.schema.ts
@@ -233,14 +245,14 @@ export default {
     id: t.bigserial().primaryKey(),
     username: t.varchar(50).unique()
   },
-  
+
   Post: {
     $count: 500,
     id: t.bigserial().primaryKey(),
     user_id: t.foreignKey('User', 'id'),
     title: t.varchar(200)
   },
-  
+
   Comment: {
     $count: 2000,
     id: t.uuid().primaryKey(),
@@ -250,6 +262,54 @@ export default {
   }
 }
 ```
+
+**Option 2: Multiple files in a directory**
+
+Organize each table in its own file for better maintainability:
+
+```typescript
+// schemas/users.ts
+import { t } from '@doviui/dev-db'
+
+export default {
+  User: {
+    $count: 100,
+    id: t.bigserial().primaryKey(),
+    username: t.varchar(50).unique()
+  }
+}
+```
+
+```typescript
+// schemas/posts.ts
+import { t } from '@doviui/dev-db'
+
+export default {
+  Post: {
+    $count: 500,
+    id: t.bigserial().primaryKey(),
+    user_id: t.foreignKey('User', 'id'),
+    title: t.varchar(200)
+  }
+}
+```
+
+```typescript
+// schemas/comments.ts
+import { t } from '@doviui/dev-db'
+
+export default {
+  Comment: {
+    $count: 2000,
+    id: t.uuid().primaryKey(),
+    post_id: t.foreignKey('Post', 'id'),
+    user_id: t.foreignKey('User', 'id'),
+    content: t.text()
+  }
+}
+```
+
+Then generate with: `bunx @doviui/dev-db ./schemas`
 
 ### Schema Validation
 
@@ -267,11 +327,9 @@ export default {
 
 **Output:**
 ```
-🔍 Validating schemas...
+Schema validation failed:
 
-❌ Schema validation failed:
-
-  • Post.user_id: Foreign key references non-existent table 'User'
+  Post.user_id: Foreign key references non-existent table 'User'
 ```
 
 ### Custom Data Generators
@@ -304,17 +362,65 @@ t.jsonb().generate((faker) => ({
 ## Command Line Interface
 
 ```bash
-bunx @doviui/dev-db generate <schemas> [options]
+dev-db <path> [options]
 
 Arguments:
-  schemas                Path to schema file or directory
+  <path>                 Path to schema file or directory containing schema files
 
 Options:
-  -o, --output <dir>     Output directory (default: "./mock-data")
-  -s, --seed <number>    Random seed for reproducibility
-  -h, --help             Display help
-  -v, --version          Display version
+  -o, --output <dir>     Output directory for generated JSON files (default: ./mock-data)
+  -s, --seed <number>    Random seed for reproducible data generation
+  -h, --help             Show help message
 ```
+
+**Examples:**
+
+```bash
+# Single file
+bunx @doviui/dev-db schema.ts
+
+# Directory of schemas
+bunx @doviui/dev-db ./schemas
+
+# Custom output directory
+bunx @doviui/dev-db ./schemas -o ./data
+
+# Reproducible generation with seed
+bunx @doviui/dev-db schema.ts -s 42
+
+# All options combined
+bunx @doviui/dev-db ./schemas --output ./database --seed 12345
+```
+
+**Schema File Format:**
+
+Schema files must export a default object or named `schema` export:
+
+```typescript
+import { t } from '@doviui/dev-db';
+
+export default {
+  User: {
+    $count: 100,
+    id: t.bigserial().primaryKey(),
+    email: t.varchar(255).unique().notNull().generate('internet.email'),
+    name: t.varchar(100).notNull()
+  }
+};
+```
+
+**Directory Support:**
+
+When a directory is provided, all `.ts` and `.js` files are loaded and their schemas are merged. This allows you to organize schemas across multiple files:
+
+```
+schemas/
+  ├── users.ts      // exports { User: { ... } }
+  ├── posts.ts      // exports { Post: { ... } }
+  └── comments.ts   // exports { Comment: { ... } }
+```
+
+Running `bunx @doviui/dev-db ./schemas` will merge all three schemas and generate data for all tables.
 
 ### Programmatic API
 
@@ -330,8 +436,11 @@ const validator = new SchemaValidator()
 const errors = validator.validate(schema)
 
 if (errors.length > 0) {
-  console.error('❌ Schema validation failed:')
-  errors.forEach(err => console.error(`  • ${err.message}`))
+  console.error('Schema validation failed:')
+  errors.forEach(err => {
+    const location = err.field ? `${err.table}.${err.field}` : err.table
+    console.error(`  ${location}: ${err.message}`)
+  })
   process.exit(1)
 }
 
@@ -342,7 +451,7 @@ const generator = new MockDataGenerator(schema, {
 })
 
 await generator.generate()
-console.log('✓ Mock data generated successfully!')
+console.log('Mock data generated successfully!')
 ```
 
 Add to package.json:

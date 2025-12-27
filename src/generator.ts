@@ -337,14 +337,10 @@ export class MockDataGenerator {
   private async writeDataToFiles(): Promise<void> {
     const outputDir = this.options.outputDir ?? './mock-data';
 
-    // Create output directory if it doesn't exist
-    await Bun.write(`${outputDir}/.gitkeep`, '');
-
-    // Write each table to a JSON file
+    // Write each table to a JSON file (directory is created automatically)
     for (const [tableName, data] of Object.entries(this.generatedData)) {
       const filePath = `${outputDir}/${tableName}.json`;
       await Bun.write(filePath, JSON.stringify(data, null, 2));
-      console.log(` Generated ${data.length} records for ${tableName} -> ${filePath}`);
     }
   }
 
