@@ -1,0 +1,49 @@
+{
+  "name": "@doviui/dev-db",
+  "version": "0.1.0",
+  "description": "TypeScript-first mock database generator for rapid application development",
+  "main": "index.ts",
+  "module": "index.ts",
+  "types": "index.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./index.ts",
+      "types": "./index.ts"
+    }
+  },
+  "files": [
+    "index.ts",
+    "src/**/*.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mock",
+    "database",
+    "generator",
+    "faker",
+    "typescript",
+    "testing",
+    "development"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calvin-kimani/dev-db.git"
+  },
+  "bugs": {
+    "url": "https://github.com/calvin-kimani/dev-db/issues"
+  },
+  "homepage": "https://github.com/calvin-kimani/dev-db#readme",
+  "author": "Calvin Kimani",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^10.1.0"
+  }
+}

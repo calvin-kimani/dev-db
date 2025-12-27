@@ -1,0 +1,43 @@
+# Test files
+tests/
+*.test.ts
+*.spec.ts
+
+# Development files
+tsconfig.json
+.eslintrc*
+.prettierrc*
+CLAUDE.md
+CONTRIBUTING.md
+.claude
+
+# Mock data (examples)
+mock-data/
+
+# Build artifacts
+*.tsbuildinfo
+coverage/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env*
