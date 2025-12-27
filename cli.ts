@@ -8,7 +8,7 @@ import { MockDataGenerator } from './src/generator';
 import { SchemaValidator } from './src/validator';
 import type { Schema } from './src/types';
 import { readdirSync, statSync } from 'fs';
-import { join, extname } from 'path';
+import { join, extname, resolve } from 'path';
 
 const HELP_TEXT = `
 @doviui/dev-db - Generate realistic mock JSON databases
@@ -84,12 +84,10 @@ function parseArgs(args: string[]): CLIOptions {
 
 async function loadSchemaFromFile(filePath: string): Promise<Schema> {
   try {
-    // Resolve path relative to current working directory
-    const resolvedPath = filePath.startsWith('.') || filePath.startsWith('/')
-      ? filePath
-      : `./${filePath}`;
+    // Resolve path to absolute path based on current working directory
+    const absolutePath = resolve(process.cwd(), filePath);
 
-    const module = await import(resolvedPath);
+    const module = await import(absolutePath);
     const schema = module.default || module.schema;
 
     if (!schema) {
@@ -109,11 +107,10 @@ async function loadSchemaFromFile(filePath: string): Promise<Schema> {
 
 async function loadSchemaFromDirectory(dirPath: string): Promise<Schema> {
   try {
-    const resolvedDir = dirPath.startsWith('.') || dirPath.startsWith('/')
-      ? dirPath
-      : `./${dirPath}`;
+    // Resolve path to absolute path based on current working directory
+    const absoluteDir = resolve(process.cwd(), dirPath);
 
-    const files = readdirSync(resolvedDir);
+    const files = readdirSync(absoluteDir);
     const schemaFiles = files.filter(file => {
       const ext = extname(file);
       return ext === '.ts' || ext === '.js';
@@ -126,7 +123,7 @@ async function loadSchemaFromDirectory(dirPath: string): Promise<Schema> {
     const mergedSchema: Schema = {};
 
     for (const file of schemaFiles) {
-      const filePath = join(resolvedDir, file);
+      const filePath = join(absoluteDir, file);
       const schema = await loadSchemaFromFile(filePath);
 
       // Merge schemas
@@ -143,11 +140,10 @@ async function loadSchemaFromDirectory(dirPath: string): Promise<Schema> {
 }
 
 async function loadSchema(path: string): Promise<Schema> {
-  const resolvedPath = path.startsWith('.') || path.startsWith('/')
-    ? path
-    : `./${path}`;
+  // Resolve path to absolute path based on current working directory
+  const absolutePath = resolve(process.cwd(), path);
 
-  const stats = statSync(resolvedPath);
+  const stats = statSync(absolutePath);
 
   if (stats.isDirectory()) {
     return loadSchemaFromDirectory(path);
@@ -182,14 +178,17 @@ async function main() {
       process.exit(1);
     }
 
+    // Resolve output directory to absolute path
+    const absoluteOutputDir = resolve(process.cwd(), options.outputDir);
+
     const generator = new MockDataGenerator(schema, {
-      outputDir: options.outputDir,
+      outputDir: absoluteOutputDir,
       seed: options.seed,
     });
 
     await generator.generate();
 
-    console.log(`Generated mock data in: ${options.outputDir}`);
+    console.log(`Generated mock data in: ${absoluteOutputDir}`);
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);
     process.exit(1);
