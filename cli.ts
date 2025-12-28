@@ -6,6 +6,7 @@
 
 import { MockDataGenerator } from './src/generator';
 import { SchemaValidator } from './src/validator';
+import { TypesGenerator } from './src/types-generator';
 import type { Schema } from './src/types';
 import { readdirSync, statSync } from 'fs';
 import { join, extname, resolve } from 'path';
@@ -22,6 +23,7 @@ ARGUMENTS:
 OPTIONS:
   -o, --output <dir>     Output directory for generated JSON files (default: ./mock-data)
   -s, --seed <number>    Random seed for reproducible data generation
+  -t, --types            Generate TypeScript type definitions alongside JSON
   -h, --help             Show this help message
 
 EXAMPLES:
@@ -29,6 +31,7 @@ EXAMPLES:
   dev-db ./schemas
   dev-db schema.ts -o ./data -s 42
   dev-db ./schemas --output ./database --seed 12345
+  dev-db schema.ts --types
 
 SCHEMA FILE FORMAT:
   Schema files must export a default object or named 'schema' export:
@@ -53,12 +56,14 @@ interface CLIOptions {
   schemaPath?: string;
   outputDir: string;
   seed?: number;
+  generateTypes: boolean;
   help: boolean;
 }
 
 function parseArgs(args: string[]): CLIOptions {
   const options: CLIOptions = {
     outputDir: './mock-data',
+    generateTypes: false,
     help: false,
   };
 
@@ -74,6 +79,8 @@ function parseArgs(args: string[]): CLIOptions {
     } else if (arg === '-s' || arg === '--seed') {
       const nextArg = args[++i];
       if (nextArg !== undefined) options.seed = parseInt(nextArg, 10);
+    } else if (arg === '-t' || arg === '--types') {
+      options.generateTypes = true;
     } else if (!arg.startsWith('-')) {
       options.schemaPath = arg;
     }
@@ -189,6 +196,17 @@ async function main() {
     await generator.generate();
 
     console.log(`Generated mock data in: ${absoluteOutputDir}`);
+
+    // Generate TypeScript types if requested
+    if (options.generateTypes) {
+      const typesGenerator = new TypesGenerator(schema, {
+        outputDir: absoluteOutputDir,
+      });
+
+      await typesGenerator.generate();
+
+      console.log(`Generated TypeScript types in: ${absoluteOutputDir}/types.ts`);
+    }
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error);
     process.exit(1);

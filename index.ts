@@ -34,6 +34,8 @@
 export { t } from './src/schema-builder';
 export { MockDataGenerator } from './src/generator';
 export { SchemaValidator } from './src/validator';
+export { TypesGenerator } from './src/types-generator';
 export type { Schema, TableConfig, FieldConfig, Generator } from './src/types';
 export type { ValidationError } from './src/validator';
 export type { GeneratorOptions } from './src/generator';
+export type { TypesGeneratorOptions } from './src/types-generator';
