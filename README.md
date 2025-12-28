@@ -15,6 +15,7 @@ dev-db eliminates the friction of setting up databases during development. Defin
 ## Key Features
 
 - **Type-Safe Schema Definition** - Fluent TypeScript API with full IntelliSense support
+- **TypeScript Types Generation** - Auto-generate type definitions from schemas for type-safe data consumption
 - **Automatic Relationship Resolution** - Foreign keys handled intelligently with topological sorting
 - **Production-Quality Mock Data** - Powered by Faker.js for realistic, diverse datasets
 - **Built-In Validation** - Detect circular dependencies, missing tables, and constraint conflicts before generation
@@ -145,10 +146,71 @@ function getPostsByUserId(userId: number) {
 app.get('/users/:id', (req, res) => {
   const user = getUserById(parseInt(req.params.id))
   if (!user) return res.status(404).json({ error: 'User not found' })
-  
+
   const userPosts = getPostsByUserId(user.id)
   res.json({ ...user, posts: userPosts })
 })
+```
+
+### Type-Safe Data Consumption
+
+Generate TypeScript type definitions from your schemas for full type safety when consuming the mock data:
+
+```bash
+# Generate types alongside JSON data
+bunx @doviui/dev-db schema.ts --types
+```
+
+This creates a `types.ts` file with interfaces matching your schema:
+
+```typescript
+// mock-data/types.ts (auto-generated)
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  age: number | null;
+  created_at?: string;
+}
+
+export interface Post {
+  id: number;
+  user_id: number;  // Correctly typed based on User.id
+  title: string;
+  content: string | null;
+  created_at?: string;
+}
+```
+
+Import and use the types in your application:
+
+```typescript
+// server.ts
+import users from './mock-data/User.json'
+import posts from './mock-data/Post.json'
+import type { User, Post } from './mock-data/types'
+
+// Fully type-safe!
+function getUserById(id: number): User | undefined {
+  return users.find(u => u.id === id)
+}
+
+function getPostsByUserId(userId: number): Post[] {
+  return posts.filter(p => p.user_id === userId)
+}
+```
+
+**Programmatic API:**
+
+```typescript
+import { TypesGenerator } from '@doviui/dev-db'
+
+const typesGenerator = new TypesGenerator(schema, {
+  outputDir: './mock-data',
+  fileName: 'types.ts'  // Optional, defaults to 'types.ts'
+})
+
+await typesGenerator.generate()
 ```
 
 ## API Reference
@@ -370,6 +432,7 @@ Arguments:
 Options:
   -o, --output <dir>     Output directory for generated JSON files (default: ./mock-data)
   -s, --seed <number>    Random seed for reproducible data generation
+  -t, --types            Generate TypeScript type definitions alongside JSON
   -h, --help             Show help message
 ```
 
@@ -388,8 +451,11 @@ bunx @doviui/dev-db ./schemas -o ./data
 # Reproducible generation with seed
 bunx @doviui/dev-db schema.ts -s 42
 
+# Generate TypeScript types
+bunx @doviui/dev-db schema.ts --types
+
 # All options combined
-bunx @doviui/dev-db ./schemas --output ./database --seed 12345
+bunx @doviui/dev-db ./schemas --output ./database --seed 12345 --types
 ```
 
 **Schema File Format:**
