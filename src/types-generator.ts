@@ -142,7 +142,41 @@ export class TypesGenerator {
       return 'any';
     }
 
+    // Handle JSON/JSONB with nested schema
+    if ((fieldConfig.type === 'json' || fieldConfig.type === 'jsonb') && fieldConfig.jsonSchema) {
+      return this.generateJsonSchemaType(fieldConfig.jsonSchema);
+    }
+
     return this.mapBasicTypeToTypeScript(fieldConfig.type);
+  }
+
+  private generateJsonSchemaType(jsonSchema: any): string {
+    const fields: string[] = [];
+
+    for (const [fieldName, field] of Object.entries(jsonSchema)) {
+      const fieldConfig = this.toFieldConfig(field);
+      if (!fieldConfig) continue;
+
+      const tsType = this.mapFieldTypeToTypeScript(fieldConfig);
+      const isNullable = this.isFieldNullable(fieldConfig);
+      const isOptional = this.isFieldOptional(fieldConfig);
+
+      let declaration = `${fieldName}`;
+
+      if (isOptional) {
+        declaration += '?';
+      }
+
+      declaration += `: ${tsType}`;
+
+      if (isNullable && !(isOptional && fieldConfig.default !== undefined)) {
+        declaration += ' | null';
+      }
+
+      fields.push(`    ${declaration}`);
+    }
+
+    return `{\n${fields.join(';\n')}${fields.length > 0 ? ';' : ''}\n  }`;
   }
 
   private mapBasicTypeToTypeScript(type: string): string {

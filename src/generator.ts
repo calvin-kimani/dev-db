@@ -206,12 +206,13 @@ export class MockDataGenerator {
       return index + 1;
     }
 
-    // Handle nullable fields (but not if they have enum, min/max constraints, or custom generators)
+    // Handle nullable fields (but not if they have enum, min/max constraints, custom generators, or JSON schemas)
     if (
       fieldConfig.nullable &&
       !fieldConfig.notNull &&
       !fieldConfig.enum &&
       !fieldConfig.generator &&
+      !fieldConfig.jsonSchema &&
       fieldConfig.min === undefined &&
       fieldConfig.max === undefined &&
       Math.random() < 0.1
@@ -309,6 +310,11 @@ export class MockDataGenerator {
 
       case 'json':
       case 'jsonb':
+        // If there's a nested schema, generate structured data
+        if (fieldConfig.jsonSchema) {
+          return this.generateJsonFromSchema(fieldConfig.jsonSchema);
+        }
+        // Otherwise, generate a simple object with sample data
         return { data: faker.lorem.word() };
 
       default:
@@ -332,6 +338,21 @@ export class MockDataGenerator {
     }
 
     return current;
+  }
+
+  private generateJsonFromSchema(jsonSchema: any): any {
+    const result: any = {};
+
+    for (const [fieldName, field] of Object.entries(jsonSchema)) {
+      const fieldConfig = this.toFieldConfig(field);
+      if (!fieldConfig) continue;
+
+      // Generate value based on field config
+      // Note: We don't track unique values for nested JSON fields
+      result[fieldName] = this.generateValueByType(fieldConfig);
+    }
+
+    return result;
   }
 
   private async writeDataToFiles(): Promise<void> {

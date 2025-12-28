@@ -59,6 +59,16 @@ export interface FieldConfig {
 
   /** Custom generator function or Faker.js method path */
   generator?: Generator;
+
+  /** Nested JSON schema for json/jsonb types */
+  jsonSchema?: JsonSchema;
+}
+
+/**
+ * Schema definition for JSON fields, mapping property names to field configurations.
+ */
+export interface JsonSchema {
+  [fieldName: string]: FieldConfig | FieldBuilderLike;
 }
 
 /**
