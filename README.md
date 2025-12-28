@@ -251,8 +251,20 @@ t.timestamptz()  // Date and time with timezone
 ```typescript
 t.boolean()      // True/false
 t.uuid()         // UUID v4
-t.json()         // JSON object
-t.jsonb()        // JSON binary
+
+// JSON types with optional structured schemas
+t.json()         // JSON object (unstructured)
+t.jsonb()        // JSON binary (unstructured)
+
+// Structured JSON with type-safe schema
+t.json({
+  id: t.integer(),
+  name: t.varchar(100),
+  preferences: t.json({
+    theme: t.varchar(20),
+    notifications: t.boolean()
+  })
+})
 ```
 
 #### Relationships
@@ -393,6 +405,95 @@ Schema validation failed:
 
   Post.user_id: Foreign key references non-existent table 'User'
 ```
+
+### Structured JSON Fields
+
+Define type-safe JSON schemas for complex nested data structures. This generates proper TypeScript types instead of `any`, and creates realistic structured data:
+
+```typescript
+import { t } from '@doviui/dev-db'
+
+export default {
+  User: {
+    $count: 100,
+    id: t.bigserial().primaryKey(),
+    email: t.varchar(255).unique().notNull(),
+
+    // Structured JSON field with nested schema
+    profile: t.json({
+      firstName: t.varchar(50).generate('person.firstName'),
+      lastName: t.varchar(50).generate('person.lastName'),
+      age: t.integer().min(18).max(90),
+
+      // Deeply nested structures
+      preferences: t.json({
+        theme: t.varchar(20).enum(['light', 'dark', 'auto']).default('auto'),
+        notifications: t.json({
+          email: t.boolean().default(true),
+          push: t.boolean().default(false),
+          frequency: t.varchar(20).enum(['realtime', 'daily', 'weekly'])
+        })
+      })
+    }),
+
+    // Simple unstructured JSON (fallback)
+    metadata: t.jsonb()
+  }
+}
+```
+
+**Generated TypeScript types:**
+
+```typescript
+// mock-data/types.ts
+export interface User {
+  id: number;
+  email: string;
+  profile: {
+    firstName: string;
+    lastName: string;
+    age: number;
+    preferences: {
+      theme?: string;  // Optional because it has a default
+      notifications: {
+        email?: boolean;
+        push?: boolean;
+        frequency: string;
+      };
+    };
+  };
+  metadata: any;  // Unstructured JSON falls back to 'any'
+}
+```
+
+**Generated JSON data:**
+
+```json
+{
+  "id": 1,
+  "email": "john@example.com",
+  "profile": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "age": 34,
+    "preferences": {
+      "theme": "dark",
+      "notifications": {
+        "email": true,
+        "push": false,
+        "frequency": "daily"
+      }
+    }
+  },
+  "metadata": { "data": "sample" }
+}
+```
+
+**Benefits:**
+- ✅ Full TypeScript type safety for nested JSON structures
+- ✅ All field modifiers work (`.nullable()`, `.default()`, `.enum()`, `.generate()`, etc.)
+- ✅ Supports unlimited nesting depth
+- ✅ Works with both `t.json()` and `t.jsonb()`
 
 ### Custom Data Generators
 

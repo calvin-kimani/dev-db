@@ -1,5 +1,5 @@
 import type { Faker } from '@faker-js/faker';
-import type { FieldConfig, FieldBuilderLike } from './types';
+import type { FieldConfig, FieldBuilderLike, JsonSchema } from './types';
 
 export type Generator = string | ((faker: Faker) => any);
 
@@ -157,6 +157,29 @@ export class FieldBuilder implements FieldBuilderLike {
    */
   generate(generator: Generator): this {
     this.config.generator = generator;
+    return this;
+  }
+
+  /**
+   * Sets a nested schema for JSON/JSONB fields.
+   * Defines the structure and types of properties within the JSON object.
+   *
+   * @param schema - The JSON schema defining nested fields
+   * @returns The builder instance for chaining
+   *
+   * @example
+   * ```typescript
+   * t.json({
+   *   userId: t.integer(),
+   *   preferences: t.json({
+   *     theme: t.varchar(20),
+   *     notifications: t.boolean()
+   *   })
+   * })
+   * ```
+   */
+  withJsonSchema(schema: JsonSchema): this {
+    this.config.jsonSchema = schema;
     return this;
   }
 

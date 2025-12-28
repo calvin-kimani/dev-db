@@ -1,4 +1,5 @@
 import { FieldBuilder, ForeignKeyBuilder } from './field-builder';
+import type { JsonSchema } from './types';
 
 /**
  * Type builder API for defining database schemas with a fluent interface.
@@ -183,19 +184,55 @@ export const t = {
 
   /**
    * Creates a JSON field for storing structured data.
+   * @param schema - Optional nested schema defining the JSON structure
    * @returns FieldBuilder instance for method chaining
+   * @example
+   * ```typescript
+   * // Simple JSON field
+   * t.json()
+   *
+   * // Structured JSON field with schema
+   * t.json({
+   *   id: t.integer(),
+   *   preferences: t.json({
+   *     dark: t.boolean()
+   *   })
+   * })
+   * ```
    */
-  json(): FieldBuilder {
-    return new FieldBuilder('json');
+  json(schema?: JsonSchema): FieldBuilder {
+    const builder = new FieldBuilder('json');
+    if (schema) {
+      builder.withJsonSchema(schema);
+    }
+    return builder;
   },
 
   /**
    * Creates a binary JSON field (JSONB).
    * More efficient for querying than regular JSON.
+   * @param schema - Optional nested schema defining the JSON structure
    * @returns FieldBuilder instance for method chaining
+   * @example
+   * ```typescript
+   * // Simple JSONB field
+   * t.jsonb()
+   *
+   * // Structured JSONB field with schema
+   * t.jsonb({
+   *   userId: t.integer(),
+   *   metadata: t.json({
+   *     tags: t.varchar(255)
+   *   })
+   * })
+   * ```
    */
-  jsonb(): FieldBuilder {
-    return new FieldBuilder('jsonb');
+  jsonb(schema?: JsonSchema): FieldBuilder {
+    const builder = new FieldBuilder('jsonb');
+    if (schema) {
+      builder.withJsonSchema(schema);
+    }
+    return builder;
   },
 
   // Relationships
