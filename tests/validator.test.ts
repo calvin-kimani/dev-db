@@ -136,4 +136,159 @@ describe('Schema Validator', () => {
     expect(errors.length).toBeGreaterThan(0);
     expect(errors.some(e => e.message.includes('Enum'))).toBe(true);
   });
+
+  test('should detect belongsTo to non-existent table', () => {
+    const schema: Schema = {
+      Post: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        userId: t.integer(),
+        author: t.belongsTo('User', 'userId'),
+      },
+    };
+
+    const validator = new SchemaValidator();
+    const errors = validator.validate(schema);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('belongsTo references non-existent table'))).toBe(true);
+  });
+
+  test('should detect belongsTo with non-existent foreign key field', () => {
+    const schema: Schema = {
+      User: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        name: t.varchar(50),
+      },
+      Post: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        author: t.belongsTo('User', 'nonExistentField'),
+      },
+    };
+
+    const validator = new SchemaValidator();
+    const errors = validator.validate(schema);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('belongsTo references non-existent foreign key field'))).toBe(true);
+  });
+
+  test('should detect hasMany to non-existent table', () => {
+    const schema: Schema = {
+      User: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        posts: t.hasMany('Post', 'userId', { min: 1, max: 5 }),
+      },
+    };
+
+    const validator = new SchemaValidator();
+    const errors = validator.validate(schema);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('hasMany references non-existent table'))).toBe(true);
+  });
+
+  test('should detect hasMany with non-existent foreign key field', () => {
+    const schema: Schema = {
+      User: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        posts: t.hasMany('Post', 'nonExistentField', { min: 1, max: 5 }),
+      },
+      Post: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        title: t.varchar(200),
+      },
+    };
+
+    const validator = new SchemaValidator();
+    const errors = validator.validate(schema);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('hasMany references non-existent foreign key field'))).toBe(true);
+  });
+
+  test('should detect invalid hasMany min/max constraints', () => {
+    const schema: Schema = {
+      User: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        posts: t.hasMany('Post', 'userId', { min: 10, max: 5 }),
+      },
+      Post: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        userId: t.foreignKey('User', 'id'),
+      },
+    };
+
+    const validator = new SchemaValidator();
+    const errors = validator.validate(schema);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('hasMany min'))).toBe(true);
+  });
+
+  test('should detect negative hasMany min value', () => {
+    const schema: Schema = {
+      User: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        posts: t.hasMany('Post', 'userId', { min: -1, max: 5 }),
+      },
+      Post: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        userId: t.foreignKey('User', 'id'),
+      },
+    };
+
+    const validator = new SchemaValidator();
+    const errors = validator.validate(schema);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('hasMany min') && e.message.includes('negative'))).toBe(true);
+  });
+
+  test('should pass validation for valid hasMany/belongsTo relationships', () => {
+    const schema: Schema = {
+      User: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        name: t.varchar(50),
+        posts: t.hasMany('Post', 'userId', { min: 1, max: 5 }),
+      },
+      Post: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        userId: t.integer(),
+        author: t.belongsTo('User', 'userId'),
+        title: t.varchar(200),
+      },
+    };
+
+    const validator = new SchemaValidator();
+    const errors = validator.validate(schema);
+    expect(errors.length).toBe(0);
+  });
+
+  test('should detect circular dependencies with belongsTo', () => {
+    const schema: Schema = {
+      User: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        profileId: t.integer(),
+        profile: t.belongsTo('Profile', 'profileId'),
+      },
+      Profile: {
+        $count: 10,
+        id: t.bigserial().primaryKey(),
+        userId: t.integer(),
+        user: t.belongsTo('User', 'userId'),
+      },
+    };
+
+    const validator = new SchemaValidator();
+    const errors = validator.validate(schema);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('Circular dependency'))).toBe(true);
+  });
 });

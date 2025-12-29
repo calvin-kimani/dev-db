@@ -57,6 +57,12 @@ export interface FieldConfig {
   /** Foreign key reference to another table */
   foreignKey?: { table: string; column: string };
 
+  /** One-to-many relationship definition (virtual field, not in output) */
+  hasMany?: { table: string; foreignKey: string; min?: number; max?: number };
+
+  /** Many-to-one relationship definition (alias for foreignKey with clearer intent) */
+  belongsTo?: { table: string; foreignKey: string };
+
   /** Custom generator function or Faker.js method path */
   generator?: Generator;
 

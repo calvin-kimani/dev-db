@@ -156,6 +156,69 @@ export class SchemaValidator {
       }
     }
 
+    // Validate belongsTo relationships
+    if (fieldConfig.belongsTo) {
+      const { table: refTable, foreignKey: refForeignKey } = fieldConfig.belongsTo;
+
+      if (!schema[refTable]) {
+        this.errors.push({
+          table: tableName,
+          field: fieldName,
+          message: `belongsTo references non-existent table '${refTable}'`,
+        });
+      }
+
+      // Check if the foreign key field exists in the current table
+      const currentTableFields = Object.keys(schema[tableName]).filter(key => key !== '$count');
+      if (!currentTableFields.includes(refForeignKey)) {
+        this.errors.push({
+          table: tableName,
+          field: fieldName,
+          message: `belongsTo references non-existent foreign key field '${refForeignKey}' in current table`,
+        });
+      }
+    }
+
+    // Validate hasMany relationships
+    if (fieldConfig.hasMany) {
+      const { table: relatedTable, foreignKey: foreignKeyField, min, max } = fieldConfig.hasMany;
+
+      if (!schema[relatedTable]) {
+        this.errors.push({
+          table: tableName,
+          field: fieldName,
+          message: `hasMany references non-existent table '${relatedTable}'`,
+        });
+      } else {
+        // Check if the foreign key field exists in the related table
+        const relatedTableFields = Object.keys(schema[relatedTable]).filter(key => key !== '$count');
+        if (!relatedTableFields.includes(foreignKeyField)) {
+          this.errors.push({
+            table: tableName,
+            field: fieldName,
+            message: `hasMany references non-existent foreign key field '${foreignKeyField}' in table '${relatedTable}'`,
+          });
+        }
+      }
+
+      // Validate min/max constraints for hasMany
+      if (min !== undefined && max !== undefined && min > max) {
+        this.errors.push({
+          table: tableName,
+          field: fieldName,
+          message: `hasMany min (${min}) cannot be greater than max (${max})`,
+        });
+      }
+
+      if (min !== undefined && min < 0) {
+        this.errors.push({
+          table: tableName,
+          field: fieldName,
+          message: `hasMany min (${min}) cannot be negative`,
+        });
+      }
+    }
+
     // Validate min/max constraints
     if (fieldConfig.min !== undefined && fieldConfig.max !== undefined) {
       if (fieldConfig.min > fieldConfig.max) {
@@ -201,8 +264,27 @@ export class SchemaValidator {
 
       for (const [_, fieldConfig] of fields) {
         const config = this.toFieldConfig(fieldConfig);
+
+        // Check foreignKey dependencies
         if (config?.foreignKey) {
           const refTable = config.foreignKey.table;
+
+          if (!visited.has(refTable)) {
+            if (hasCycle(refTable, [...path, refTable])) {
+              return true;
+            }
+          } else if (recursionStack.has(refTable)) {
+            this.errors.push({
+              table: tableName,
+              message: `Circular dependency detected: ${[...path, refTable].join(' -> ')}`,
+            });
+            return true;
+          }
+        }
+
+        // Check belongsTo dependencies
+        if (config?.belongsTo) {
+          const refTable = config.belongsTo.table;
 
           if (!visited.has(refTable)) {
             if (hasCycle(refTable, [...path, refTable])) {

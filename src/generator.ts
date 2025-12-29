@@ -79,6 +79,9 @@ export class MockDataGenerator {
    * ```
    */
   async generate(): Promise<GeneratedData> {
+    // Calculate record counts based on hasMany relationships
+    this.calculateRecordCounts();
+
     // Topologically sort tables based on foreign key dependencies
     const sortedTables = this.topologicalSort();
 
@@ -98,6 +101,34 @@ export class MockDataGenerator {
     return this.generatedData;
   }
 
+  /**
+   * Calculates record counts for tables based on hasMany relationships.
+   * If a parent table has a hasMany relationship, it overrides the child table's $count.
+   */
+  private calculateRecordCounts(): void {
+    for (const [tableName, tableConfig] of Object.entries(this.schema)) {
+      const fields = Object.entries(tableConfig).filter(([key]) => key !== '$count');
+
+      for (const [_, field] of fields) {
+        const fieldConfig = this.toFieldConfig(field);
+
+        if (fieldConfig?.hasMany) {
+          const { table: relatedTable, min = 1, max = 5 } = fieldConfig.hasMany;
+          const parentCount = tableConfig.$count || 10;
+
+          // Calculate child count: average of min/max per parent * parent count
+          const avgPerParent = (min + max) / 2;
+          const calculatedCount = Math.ceil(parentCount * avgPerParent);
+
+          // Override the related table's $count
+          if (this.schema[relatedTable]) {
+            this.schema[relatedTable].$count = calculatedCount;
+          }
+        }
+      }
+    }
+  }
+
   private topologicalSort(): string[] {
     const tables = Object.keys(this.schema);
     const visited = new Set<string>();
@@ -115,8 +146,18 @@ export class MockDataGenerator {
       // Visit dependencies first
       for (const [_, field] of fields) {
         const fieldConfig = this.toFieldConfig(field);
+
+        // Handle foreignKey dependencies
         if (fieldConfig?.foreignKey) {
           const refTable = fieldConfig.foreignKey.table;
+          if (refTable !== tableName) { // Avoid self-references
+            visit(refTable);
+          }
+        }
+
+        // Handle belongsTo dependencies
+        if (fieldConfig?.belongsTo) {
+          const refTable = fieldConfig.belongsTo.table;
           if (refTable !== tableName) { // Avoid self-references
             visit(refTable);
           }
@@ -144,6 +185,11 @@ export class MockDataGenerator {
       for (const [fieldName, field] of fields) {
         const fieldConfig = this.toFieldConfig(field);
         if (fieldConfig) {
+          // Skip hasMany and belongsTo fields (they're virtual and don't appear in output)
+          if (fieldConfig.hasMany || fieldConfig.belongsTo) {
+            continue;
+          }
+
           record[fieldName] = this.generateFieldValue(
             fieldName,
             fieldConfig,
@@ -184,6 +230,22 @@ export class MockDataGenerator {
         return new Date().toISOString();
       }
       return fieldConfig.default;
+    }
+
+    // Check if this field is a foreign key in a belongsTo relationship
+    const belongsToRelationship = this.findBelongsToForField(tableName, fieldName);
+    if (belongsToRelationship) {
+      const refTable = belongsToRelationship.table;
+      const refData = this.generatedData[refTable];
+
+      if (!refData || refData.length === 0) {
+        if (fieldConfig.nullable) return null;
+        throw new Error(`Cannot generate belongsTo for ${tableName}.${fieldName}: no data in ${refTable}`);
+      }
+
+      const randomRecord = refData[Math.floor(Math.random() * refData.length)];
+      // Get the primary key value from the referenced table
+      return randomRecord.id || randomRecord[Object.keys(randomRecord)[0]];
     }
 
     // Handle foreign keys
@@ -248,6 +310,25 @@ export class MockDataGenerator {
     }
 
     return value;
+  }
+
+  /**
+   * Finds a belongsTo relationship that references the given field name.
+   */
+  private findBelongsToForField(tableName: string, fieldName: string): { table: string; foreignKey: string } | null {
+    const tableConfig = this.schema[tableName];
+    if (!tableConfig) return null;
+
+    const fields = Object.entries(tableConfig).filter(([key]) => key !== '$count');
+
+    for (const [_, field] of fields) {
+      const fieldConfig = this.toFieldConfig(field);
+      if (fieldConfig?.belongsTo && fieldConfig.belongsTo.foreignKey === fieldName) {
+        return fieldConfig.belongsTo;
+      }
+    }
+
+    return null;
   }
 
   private generateValueByType(fieldConfig: FieldConfig): any {

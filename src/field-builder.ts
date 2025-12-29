@@ -209,3 +209,44 @@ export class ForeignKeyBuilder extends FieldBuilder {
     this.config.foreignKey = { table, column };
   }
 }
+
+/**
+ * Builder class for belongsTo relationships.
+ * Alias for ForeignKeyBuilder with clearer intent for many-to-one relationships.
+ */
+export class BelongsToBuilder extends FieldBuilder {
+  /**
+   * Creates a new belongsTo relationship builder.
+   *
+   * @param table - The referenced table name
+   * @param foreignKey - The foreign key field name in the current table
+   */
+  constructor(table: string, foreignKey: string) {
+    super('belongsTo');
+    this.config.belongsTo = { table, foreignKey };
+  }
+}
+
+/**
+ * Builder class for hasMany relationships.
+ * Defines one-to-many relationships. This is a virtual field that doesn't appear in output
+ * but controls how related records are generated.
+ */
+export class HasManyBuilder extends FieldBuilder {
+  /**
+   * Creates a new hasMany relationship builder.
+   *
+   * @param table - The related table name
+   * @param foreignKey - The foreign key field name in the related table
+   * @param options - Min/max constraints for how many related records to generate
+   */
+  constructor(table: string, foreignKey: string, options?: { min?: number; max?: number }) {
+    super('hasMany');
+    this.config.hasMany = {
+      table,
+      foreignKey,
+      min: options?.min,
+      max: options?.max
+    };
+  }
+}

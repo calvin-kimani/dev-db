@@ -1,4 +1,4 @@
-import { FieldBuilder, ForeignKeyBuilder } from './field-builder';
+import { FieldBuilder, ForeignKeyBuilder, BelongsToBuilder, HasManyBuilder } from './field-builder';
 import type { JsonSchema } from './types';
 
 /**
@@ -246,5 +246,43 @@ export const t = {
    */
   foreignKey(table: string, column: string): ForeignKeyBuilder {
     return new ForeignKeyBuilder(table, column);
+  },
+
+  /**
+   * Creates a belongsTo relationship (many-to-one).
+   * This is an alias for foreignKey with clearer intent.
+   * @param table - The referenced table name
+   * @param foreignKey - The foreign key field name in the current table
+   * @returns BelongsToBuilder instance for method chaining
+   * @example
+   * ```typescript
+   * Post: {
+   *   userId: t.belongsTo('User', 'userId')
+   * }
+   * ```
+   */
+  belongsTo(table: string, foreignKey: string): BelongsToBuilder {
+    return new BelongsToBuilder(table, foreignKey);
+  },
+
+  /**
+   * Creates a hasMany relationship (one-to-many).
+   * This is a virtual field that controls generation of related records.
+   * It does not appear in the generated output.
+   * @param table - The related table name
+   * @param foreignKey - The foreign key field name in the related table
+   * @param options - Min/max constraints for number of related records
+   * @returns HasManyBuilder instance for method chaining
+   * @example
+   * ```typescript
+   * User: {
+   *   $count: 100,
+   *   id: t.bigserial().primaryKey(),
+   *   posts: t.hasMany('Post', 'userId', { min: 2, max: 10 })
+   * }
+   * ```
+   */
+  hasMany(table: string, foreignKey: string, options?: { min?: number; max?: number }): HasManyBuilder {
+    return new HasManyBuilder(table, foreignKey, options);
   },
 };
