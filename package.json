@@ -1,6 +1,6 @@
 {
   "name": "@doviui/dev-db",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "TypeScript-first mock database generator for rapid application development",
   "main": "index.ts",
   "module": "index.ts",
