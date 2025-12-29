@@ -269,7 +269,9 @@ t.json({
 
 #### Relationships
 ```typescript
-t.foreignKey('TableName', 'column')  // Foreign key reference
+t.foreignKey('TableName', 'column')           // Foreign key reference
+t.belongsTo('TableName', 'foreignKeyField')   // Many-to-one relationship
+t.hasMany('TableName', 'foreignKeyField', { min: 1, max: 5 })  // One-to-many relationship (virtual)
 ```
 
 ### Field Modifiers
@@ -300,6 +302,81 @@ Chain modifiers to configure field behavior and constraints:
 ```
 
 ## Advanced Usage
+
+### hasMany and belongsTo Relationships
+
+For clearer relationship semantics and automatic record count calculation, use `hasMany()` and `belongsTo()` helpers:
+
+```typescript
+import { t } from '@doviui/dev-db'
+
+export default {
+  User: {
+    $count: 100,
+    id: t.bigserial().primaryKey(),
+    username: t.varchar(50).unique().generate('internet.userName'),
+
+    // Define one-to-many: each user has 2-5 posts
+    posts: t.hasMany('Post', 'userId', { min: 2, max: 5 })
+  },
+
+  Post: {
+    // $count is automatically calculated: 100 users * avg(2,5) posts = 350 posts
+    id: t.bigserial().primaryKey(),
+    userId: t.integer(),  // The actual foreign key field
+
+    // Define many-to-one for clearer intent
+    author: t.belongsTo('User', 'userId'),
+
+    title: t.varchar(200).generate('lorem.sentence'),
+    content: t.text().generate('lorem.paragraphs')
+  }
+}
+```
+
+**Key Benefits:**
+
+- **Auto-calculated counts**: `hasMany` automatically calculates child table record counts based on parent count and min/max constraints
+- **Clearer intent**: `belongsTo` makes many-to-one relationships more explicit than raw `foreignKey`
+- **Virtual fields**: Both `hasMany` and `belongsTo` fields don't appear in generated output—they're metadata for generation logic
+
+**How it works:**
+
+1. `hasMany('Post', 'userId', { min: 2, max: 5 })` tells the generator: "Each User should have between 2-5 Posts"
+2. The generator calculates: `100 users * average(2, 5) = 100 * 3.5 = 350 posts`
+3. `belongsTo('User', 'userId')` instructs the generator to populate the `userId` field with valid User IDs
+4. Neither `posts` nor `author` appear in the generated JSON—only the actual data fields
+
+**Complex Example:**
+
+```typescript
+export default {
+  Author: {
+    $count: 50,
+    id: t.uuid().primaryKey(),
+    name: t.varchar(100).generate('person.fullName'),
+    articles: t.hasMany('Article', 'authorId', { min: 3, max: 10 })
+  },
+
+  Article: {
+    // Auto-calculated: 50 * 6.5 = 325 articles
+    id: t.bigserial().primaryKey(),
+    authorId: t.varchar(36),  // UUID foreign key
+    author: t.belongsTo('Author', 'authorId'),
+    title: t.varchar(200),
+
+    comments: t.hasMany('Comment', 'articleId', { min: 0, max: 20 })
+  },
+
+  Comment: {
+    // Auto-calculated: 325 * 10 = 3,250 comments
+    id: t.bigserial().primaryKey(),
+    articleId: t.integer(),
+    article: t.belongsTo('Article', 'articleId'),
+    content: t.text()
+  }
+}
+```
 
 ### Multi-Table Schemas
 
@@ -655,9 +732,12 @@ export default {
     first_name: t.varchar(50).generate('person.firstName'),
     last_name: t.varchar(50).generate('person.lastName'),
     phone: t.varchar(20).generate('phone.number'),
-    created_at: t.timestamptz().default('now')
+    created_at: t.timestamptz().default('now'),
+
+    // Each customer has 1-5 orders
+    orders: t.hasMany('Order', 'customerId', { min: 1, max: 5 })
   },
-  
+
   Product: {
     $count: 100,
     id: t.bigserial().primaryKey(),
@@ -667,21 +747,27 @@ export default {
     stock: t.integer().min(0).max(1000),
     category: t.varchar(50).enum(['electronics', 'clothing', 'home', 'books'])
   },
-  
+
   Order: {
-    $count: 500,
+    // Auto-calculated: 200 * 3 = 600 orders
     id: t.bigserial().primaryKey(),
-    customer_id: t.foreignKey('Customer', 'id').notNull(),
+    customerId: t.varchar(36),
+    customer: t.belongsTo('Customer', 'customerId'),
     status: t.varchar(20).enum(['pending', 'processing', 'shipped', 'delivered']),
     total: t.decimal(10, 2).min(10).max(10000),
-    created_at: t.timestamptz().default('now')
+    created_at: t.timestamptz().default('now'),
+
+    // Each order has 1-4 items
+    items: t.hasMany('OrderItem', 'orderId', { min: 1, max: 4 })
   },
-  
+
   OrderItem: {
-    $count: 1500,
+    // Auto-calculated: 600 * 2.5 = 1,500 items
     id: t.bigserial().primaryKey(),
-    order_id: t.foreignKey('Order', 'id').notNull(),
-    product_id: t.foreignKey('Product', 'id').notNull(),
+    orderId: t.integer(),
+    order: t.belongsTo('Order', 'orderId'),
+    productId: t.integer(),
+    product: t.belongsTo('Product', 'productId'),
     quantity: t.integer().min(1).max(10),
     price: t.decimal(10, 2)
   }
@@ -701,13 +787,17 @@ export default {
     username: t.varchar(50).unique().generate('internet.userName'),
     email: t.varchar(255).unique().generate('internet.email'),
     bio: t.text().generate('lorem.paragraph'),
-    avatar_url: t.varchar(500).generate('image.avatar')
+    avatar_url: t.varchar(500).generate('image.avatar'),
+
+    // Each author has 3-10 articles
+    articles: t.hasMany('Article', 'authorId', { min: 3, max: 10 })
   },
-  
+
   Article: {
-    $count: 300,
+    // Auto-calculated: 50 * 6.5 = 325 articles
     id: t.bigserial().primaryKey(),
-    author_id: t.foreignKey('Author', 'id'),
+    authorId: t.varchar(36),
+    author: t.belongsTo('Author', 'authorId'),
     title: t.varchar(200).generate('lorem.sentence'),
     slug: t.varchar(200).unique().generate('lorem.slug'),
     content: t.text().generate('lorem.paragraphs', 5),
@@ -716,17 +806,19 @@ export default {
     published_at: t.timestamptz().nullable(),
     created_at: t.timestamptz().default('now')
   },
-  
+
   Tag: {
     $count: 30,
     id: t.serial().primaryKey(),
     name: t.varchar(50).unique().generate('lorem.word')
   },
-  
+
   ArticleTag: {
     $count: 800,
-    article_id: t.foreignKey('Article', 'id'),
-    tag_id: t.foreignKey('Tag', 'id')
+    articleId: t.integer(),
+    article: t.belongsTo('Article', 'articleId'),
+    tagId: t.integer(),
+    tag: t.belongsTo('Tag', 'tagId')
   }
 }
 ```
